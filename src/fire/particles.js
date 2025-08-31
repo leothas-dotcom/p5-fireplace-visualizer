@@ -5,18 +5,20 @@ class Particle {
         this.options = arguments[2] || {};
         this.kind = this.options.kind || 'flame';
         if (this.kind === 'ember') {
-            // more upright and slower embers to resemble droplets
-            this.velocity = createVector(random(-0.25, 0.25), random(-1.8, -0.8));
-            this.lifespan = random(1200, 2800);
-            this.baseSize = random(1.0, 2.4);
+            // embers are much smaller and slower now
+            this.velocity = createVector(random(-0.06, 0.06), random(-0.2, -0.08));
+            this.lifespan = random(1800, 3600);
+            this.baseSize = random(0.6, 1.4);
         } else if (this.kind === 'core') {
-            this.velocity = createVector(random(-0.4, 0.4), random(-0.6, -1.2));
-            this.lifespan = random(1400, 2200);
-            this.baseSize = random(10, 26);
+            // core stays visible but less enormous
+            this.velocity = createVector(random(-0.12, 0.12), random(-0.12, -0.28));
+            this.lifespan = random(2000, 3200);
+            this.baseSize = random(6, 14);
         } else { // flame
-            this.velocity = createVector(random(-0.8, 0.8), random(-0.6, -2.2));
-            this.lifespan = random(700, 1200); // ms
-            this.baseSize = random(2.0, 6.2);
+            // flame rises much slower than before (scale velocities down)
+            this.velocity = createVector(random(-0.18, 0.18), random(-0.1, -0.36));
+            this.lifespan = random(1400, 2400); // ms
+            this.baseSize = random(1.8, 4.2);
         }
         this.acceleration = createVector(0, 0);
         this.age = 0;
@@ -29,40 +31,53 @@ class Particle {
     }
 
     update() {
-        // simple drag dependent on size (slightly lower for embers to keep them cohesive)
-        let dragFactor = this.kind === 'ember' ? -0.009 : -0.01;
-        let drag = this.velocity.copy().mult(dragFactor * (this.size / 12));
+        // Buoyancy / temperature model: particles have 'heat' that creates upward force
+        // hotter particles rise stronger; core particles are hotter
+        const heat = this.kind === 'core' ? 1.0 : (this.kind === 'flame' ? 0.7 : 0.45);
+        const buoyancy = createVector(0, -heat * 0.0025);
+        this.applyForce(buoyancy);
+
+        // gentle drag to keep them from accelerating too much
+        const drag = this.velocity.copy().mult(-0.015 * (this.size / 6));
         this.applyForce(drag);
 
-    // perlin sway to make flame wavy; embers get softer lateral sway
-    let swayAmt = this.kind === 'ember' ? 0.9 : 1.0;
-    let sway = (noise(this.position.x * 0.008, millis() * 0.0008) - 0.5) * swayAmt;
-    this.applyForce(createVector(sway * 0.01, 0));
+        // Perlin-based lateral flutter proportional to local heat
+        const flutter = (noise(this.position.x * 0.01, millis() * 0.0012) - 0.5) * (0.002 + heat * 0.01);
+        this.applyForce(createVector(flutter, 0));
 
-        // integrate
+        // integrate velocity
         this.velocity.add(this.acceleration);
 
-        // simple cohesion for ember particles: sample nearby particles by index to approximate local grouping
-        if (this.kind === 'ember' && typeof particles !== 'undefined' && particles.length > 3) {
-            let center = createVector(0,0);
+        // radius-based cohesion (sticky behaviour): sample neighbors within short radius
+        if ((this.kind === 'ember' || this.kind === 'flame' || this.kind === 'core') && typeof particles !== 'undefined') {
+            let sum = createVector(0,0);
             let count = 0;
-            const myIndex = particles.indexOf(this);
-            for (let i = -2; i <= 2; i++) {
-                const idx = myIndex + i;
-                if (idx >= 0 && idx < particles.length && particles[idx] !== this) {
-                    center.add(particles[idx].position);
+            const r = 24; // search radius
+            for (let i = 0; i < particles.length; i++) {
+                const other = particles[i];
+                if (other === this) continue;
+                const d = p5.Vector.dist(this.position, other.position);
+                if (d > 0 && d < r) {
+                    // weight by distance and by kind (cores attract more)
+                    const w = (1 - (d / r)) * (other.kind === 'core' ? 1.2 : 1.0);
+                    const to = p5.Vector.sub(other.position, this.position).mult(w);
+                    sum.add(to);
                     count++;
                 }
             }
             if (count > 0) {
-                center.div(count);
-                // pull slightly toward local center to create stickiness
-                const pull = p5.Vector.sub(center, this.position).mult(0.0012);
-                this.velocity.add(pull);
+                sum.div(count);
+                this.velocity.add(sum.mult(0.005 * (heat + 0.6)));
             }
         }
 
+        // cap velocity to keep motion gentle
+        this.velocity.x = constrain(this.velocity.x, -1.0, 1.0);
+        this.velocity.y = constrain(this.velocity.y, -1.6, 0.5);
+
+        // move
         this.position.add(p5.Vector.mult(this.velocity, deltaTime / 16.666));
+        this.acceleration.mult(0);
         this.acceleration.mult(0);
 
         // age
@@ -74,32 +89,46 @@ class Particle {
     }
 
     display() {
-        // layered glow for better fire look
-        let speed = this.velocity.mag();
-        let t = constrain(map(speed, 0, 8, 0, 1), 0, 1);
-        // color ramps per kind
-        let inner, mid, outer;
-        if (this.kind === 'ember') {
-            inner = [255, 210, 140]; mid = [255, 150, 60]; outer = [90, 30, 12];
-        } else if (this.kind === 'core') {
-            inner = [255, 255, 200]; mid = [255, 200, 80]; outer = [180, 70, 20];
-        } else { // flame
-            inner = [255, 245, 200]; mid = [255, 140, 40]; outer = [120, 30, 10];
+        // improved flame rendering: a bright jittering core + tall mid glow + soft outer cone
+        let lifeAlpha = map(this.age, 0, this.lifespan, 240, 0);
+        // color palette
+        let inner = [255, 244, 200];
+        let mid = [255, 150, 48];
+        let outer = [120, 38, 12];
+
+        // smoother gradient: draw many fine concentric ellipses to simulate a soft glow
+        const jitterX = (noise(this.position.x * 0.02, millis() * 0.003) - 0.5) * 1.4;
+        const jitterY = (noise(this.position.y * 0.02, millis() * 0.002) - 0.5) * 1.0;
+        const coreW = max(0.6, this.size * 0.8);
+        const coreH = max(1.0, this.size * 3.0);
+
+        noStroke();
+        const steps = 12; // higher steps -> smoother gradient
+        for (let i = 0; i < steps; i++) {
+            const t = i / (steps - 1);
+            // smooth falloff (bias toward inner brightness)
+            const fall = pow(1 - t, 2.2);
+            // size interpolates from core to outer cone non-linearly
+            const sx = coreW * (1 + t * 3.2);
+            const sy = coreH * (1 + t * 3.8);
+            // color blend between inner->mid->outer
+            const c1 = lerpColor(color(inner[0], inner[1], inner[2]), color(mid[0], mid[1], mid[2]), t * 0.75);
+            const c2 = lerpColor(color(mid[0], mid[1], mid[2]), color(outer[0], outer[1], outer[2]), t * 0.9);
+            // final color mix
+            const col = lerpColor(c1, c2, t);
+            const a = lifeAlpha * fall * 0.9;
+            fill(red(col), green(col), blue(col), a);
+            // small noise per-step to blur edges
+            const ox = jitterX * (1 - t) + (noise(i * 0.13, millis() * 0.001 + i) - 0.5) * (0.6 * (1 - t));
+            const oy = jitterY * (1 - t) + (noise(i * 0.11, millis() * 0.0007 + i) - 0.5) * (0.6 * (1 - t));
+            ellipse(this.position.x + ox, this.position.y + oy - coreH * (t * 0.18), sx, sy);
         }
 
-        let lifeAlpha = map(this.age, 0, this.lifespan, 220, 0);
-
-        // inner bright core (small)
-        fill(lerp(inner[0], mid[0], t), lerp(inner[1], mid[1], t), lerp(inner[2], mid[2], t), lifeAlpha);
-        ellipse(this.position.x, this.position.y, max(0.4, this.size * 0.45), max(0.4, this.size * 0.45));
-
-        // mid glow
-        fill(lerp(mid[0], outer[0], t), lerp(mid[1], outer[1], t), lerp(mid[2], outer[2], t), lifeAlpha * 0.6);
-        ellipse(this.position.x, this.position.y, max(0.8, this.size * 0.95), max(0.8, this.size * 0.95));
-
-        // outer fuzz / smoke-ish
-        fill(outer[0], outer[1], outer[2], lifeAlpha * 0.22);
-        ellipse(this.position.x, this.position.y, max(1.6, this.size * 2.2), max(1.6, this.size * 2.2));
+        // tiny spark highlights for embers (rare)
+        if (this.kind === 'ember' && random() < 0.02) {
+            fill(255, 230, 140, lifeAlpha);
+            ellipse(this.position.x + random(-0.4, 0.4), this.position.y + random(-0.4, 0.4), 0.6, 0.6);
+        }
 
         // Ember tiny spark highlight
         if (this.kind === 'ember' && random() < 0.06) {

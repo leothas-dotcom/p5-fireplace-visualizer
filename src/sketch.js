@@ -15,6 +15,11 @@ let gpuPositions = null;
 let stars = [];
 const STAR_COUNT = 120;
 
+// single emitter for now (centered). We'll copy this later if you want multiple burners.
+let emitters = [];
+const EMITTER_COUNT = 1; // start with a single flame
+
+
 function setup() {
     const container = document.getElementById('canvas-container') || document.body;
     let c = createCanvas(windowWidth, windowHeight);
@@ -23,6 +28,9 @@ function setup() {
     noStroke();
 
     airflow = new Airflow();
+
+    // create multiple separated emitters across the fireplace area
+    createEmitters();
 
     // generate stars
     for (let i = 0; i < STAR_COUNT; i++) {
@@ -42,6 +50,14 @@ function setup() {
             useGPU = false;
         }
     }
+}
+
+function createEmitters() {
+    emitters = [];
+    // single centered emitter (small random jitter)
+    const x = width * 0.5 + random(-3, 3);
+    const y = height - 44 + random(-4, 4);
+    emitters.push({ x: x, y: y });
 }
 
 function draw() {
@@ -113,9 +129,9 @@ function draw() {
     }
     for (let i = particles.length - 1; i >= 0; i--) {
         let p = particles[i];
-        // apply airflow force
-        let f = airflow.getForce(p.position.x, p.position.y);
-        p.applyForce(f);
+    // apply airflow force (scaled down so it gently affects flames)
+    let f = airflow.getForce(p.position.x, p.position.y);
+    p.applyForce(p5.Vector.mult(f, 0.55));
         p.update();
         p.display();
         if (p.isDead()) particles.splice(i, 1);
@@ -133,24 +149,35 @@ function draw() {
 
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
+    createEmitters();
 }
 
 function emitParticle() {
-    // Emit from a loose source near bottom-center
-    const x = width * 0.5 + random(-30, 30);
-    const y = height - 40 + random(-10, 10);
-    // emit a small cluster of fine flame particles
-    const cluster = floor(random(2, 6));
+    // Emit from one of several separated emitters (like burners)
+    if (!emitters || emitters.length === 0) {
+        createEmitters();
+    }
+    // choose an emitter in a round-robin-ish / random mix so sources remain separated
+    const idx = floor(random() * emitters.length);
+    const e = emitters[idx];
+    // emit a small cluster of flame particles around the emitter
+    const cluster = floor(random(2, 5));
     for (let i = 0; i < cluster; i++) {
-        particles.push(new Particle(x + random(-8, 8), y + random(-6, 4), { kind: 'flame' }));
+        const px = e.x + random(-6, 6);
+        const py = e.y + random(-4, 4);
+        particles.push(new Particle(px, py, { kind: 'flame', sourceX: e.x }));
     }
-    // occasional ember / spark
+    // embers are rarer but stay more upright (droplet-like)
     if (random() < 0.12) {
-        particles.push(new Particle(x + random(-12, 12), y + random(-6, 4), { kind: 'ember' }));
+        const px = e.x + random(-8, 8);
+        const py = e.y + random(-6, 6);
+        particles.push(new Particle(px, py, { kind: 'ember', sourceX: e.x }));
     }
-    // rare core/glow particle to act like source
-    if (random() < 0.02) {
-        particles.push(new Particle(x + random(-6, 6), y + random(-2, 2), { kind: 'core' }));
+    // core 'heart' particles concentrated near the center of the emitter
+    if (random() < 0.08) {
+        const px = e.x + random(-3, 3);
+        const py = e.y + random(-2, 2);
+        particles.push(new Particle(px, py, { kind: 'core', sourceX: e.x }));
     }
 }
 
