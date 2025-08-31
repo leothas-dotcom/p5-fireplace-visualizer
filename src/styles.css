@@ -1,26 +1,31 @@
-body {
+html, body {
+    height: 100%;
     margin: 0;
-    padding: 0;
-    overflow: hidden;
-    background-color: #222;
+    background: linear-gradient(#0b0b0d, #121212 40%, #180f0a 100%);
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    color: #fff;
+}
+
+#canvas-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
 }
 
 canvas {
-    display: block;
-    margin: auto;
-    border: 2px solid #fff;
-    border-radius: 10px;
+    max-width: 100%;
+    max-height: 92vh;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.7), 0 2px 8px rgba(255,120,20,0.06) inset;
+    border-radius: 12px;
+    background: transparent;
 }
 
 h1 {
-    color: #fff;
-    text-align: center;
-    font-family: 'Arial', sans-serif;
-}
-
-.instructions {
-    color: #fff;
-    text-align: center;
-    font-family: 'Arial', sans-serif;
-    margin-top: 20px;
+    position: absolute;
+    top: 18px;
+    left: 20px;
+    margin: 0;
+    font-size: 18px;
+    color: rgba(255,220,200,0.9);
 }

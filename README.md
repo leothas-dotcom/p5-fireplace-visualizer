@@ -1,95 +1,103 @@
 # p5 Fireplace Visualizer
 
-A cozy, browser-based fireplace simulator built with p5.js. The goal is a relaxing corner to watch simulated flames emerge from configurable sources and respond to simulated airflow.
+Cozy, browser-based fireplace visualizer built with p5.js and an optional GPU compute path (GPU.js). The project simulates fire particles, airflow, and a slower, droplet-like ember behavior for a warm, relaxing visual.
 
-Live demo
+Repository: https://github.com/leothas-dotcom/p5-fireplace-visualizer
 
-- GitHub Pages: https://leothas-dotcom.github.io/p5-fireplace-visualizer/  (coming soon)
+## Status (latest)
+- GPU prototype implemented using GPU.js (browser WebGL path when available).
+- Particle system supports three kinds: `flame`, `ember`, and `core`.
+- Performance improvements: batched POINTS rendering, reduced default particle counts, and cheaper GPU kernels with cohesion/convective terms to approximate liquid-like droplets.
 
-What this repo contains
+## Files of interest
+- `index.html` — entry page, includes p5.js and GPU.js via CDN.
+- `src/sketch.js` — main p5 sketch, emission, scene composition, and GPU toggle.
+- `src/fire/particles.js` — CPU particle class (flame/ember/core) and display code.
+- `src/fire/airflow.js` — airflow sampling that applies forces to particles.
+- `src/gpu/particles-gpu.js` — GPUManager wrapper (init / step / getPositions) using GPU.js kernels.
+- `scripts/serve.js` — minimal zero-dependency static server used by `npm start`.
 
-- `index.html` — HTML shell that loads the p5 sketch.
-- `src/sketch.js` — main sketch and loop.
-- `src/styles.css` — page styles for a clean canvas experience.
-- `src/fire/particles.js` — particle class used to render flame particles.
-- `src/fire/airflow.js` — simple airflow helper class.
-
-Quick start (development)
-
-1. Clone the repository:
-
+## Quick start (local)
+1. Clone:
+   ```bash
    git clone https://github.com/leothas-dotcom/p5-fireplace-visualizer.git
    cd p5-fireplace-visualizer
-
-2. Install dev dependencies (Windows / PowerShell)
-
+   ```
+2. Install runtime deps (p5 is in package.json):
+   ```powershell
    npm install
-
-3. Run a local server and open the sketch in a browser:
-
+   ```
+3. Start the local static server:
+   ```powershell
    npm start
+   ```
+   The server runs `node scripts/serve.js 8080` by default and serves the project at `http://localhost:8080`.
 
-Windows (PowerShell) notes
-
-- `npm` is not a PowerShell "function" — it's the Node package manager executable that comes with Node.js. If `npm` is not recognized in PowerShell, install Node.js (which includes `npm`) or use one of the install options below.
-
-- Recommended installs on Windows:
-  - Official Node installer (LTS): download from https://nodejs.org and run the Windows installer (includes npm). After installing, open a new PowerShell window and run `node -v` and `npm -v` to verify.
-  - winget (Windows 10/11):
-
-    ```powershell
-    winget install OpenJS.NodeJS.LTS
-    ```
-
-  - Chocolatey (if you use it):
-
-    ```powershell
-    choco install nodejs-lts
-    ```
-
-  - nvm-windows (if you want multiple Node versions): https://github.com/coreybutler/nvm-windows
-
-- Verify installation in PowerShell:
-
+Windows PowerShell notes
+- If PowerShell blocks npm launch scripts (error mentioning `npm.ps1`), either run `npm.cmd` directly or open a new PowerShell and run:
   ```powershell
-  node -v
-  npm -v
+  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+  npm start
   ```
 
-- If you see `npm: command not found` or `npm is not recognized`, either:
-  - Restart the terminal after installing Node (the PATH is updated on a new session), or
-  - Ensure the Node installation directory is in your PATH environment variable.
+## GPU notes & tuning
+- GPU mode is enabled by default in `src/sketch.js` with `useGPU = true`. The GPU particle compute is implemented in `src/gpu/particles-gpu.js` using GPU.js (CDN).
+- Default GPU count is modest (12k) — you can change `gpuCount` in `src/sketch.js` to a higher or lower value depending on your GPU and target FPS.
+- If GPU.js cannot initialize (due to browser or driver limitations), the code falls back to CPU particles automatically.
 
-Run and preview
+Performance tips
+- Reduce `gpuCount` and `EMIT_RATE` in `src/sketch.js` to improve FPS.
+- Close other GPU-heavy applications (browser tabs, games) for better WebGL performance.
+- For maximum performance on high particle counts, consider a WebGL point-sprite renderer (future improvement).
 
-- After `npm install`, run `npm start`. This uses `live-server` (dev dependency) to serve the folder and should open your default browser automatically.
-- If the browser doesn't open, visit http://127.0.0.1:8080 or http://localhost:8080 (live-server default) in your browser.
-- Stop the server with Ctrl+C in the terminal.
-
-Notes on current status
-
-- This is an early scaffold. The sketch renders particles and a basic airflow helper, but there are known issues and missing features (see Backlog issues).
-- The project uses p5.js for rendering and `live-server` for local development.
-
-Roadmap / Backlog
-
-I created a set of issues to track the next steps. Top priorities:
-
-- Make the particle system robust: remove dead particles to prevent memory growth.
-- Add support for multiple fire sources and configurable emission.
-- Integrate airflow forces so particles react more realistically.
-- Add UI controls for emission rate, wind, and color palettes.
-- Improve visuals (color gradients, additive blending, glow, flicker).
-- Add CI and a GitHub Pages demo deploy.
+How the liquid-like embers were achieved
+- GPU kernel: introduced gentle buoyancy, smooth pseudo-noise sway, convection swirl, and a cheap cohesion term (pseudo-neighbors sampled by id hash) to create slow, twirling droplet motion.
+- CPU embers: reduced lateral jitter, longer lifespan, and a local cohesion pull toward nearby particles to approximate stickiness.
 
 Contributing
-
-Issues and PRs are welcome. If you pick a task from the backlog, please comment on the corresponding issue so someone else doesn't duplicate work.
+- Contributions welcome: open an issue for a feature request or bug, or submit a pull request. See code comments for areas marked TODO (GPU sprite rendering, UI tuning controls).
 
 License
+- MIT
 
-MIT — see `LICENSE` for full text.
+Enjoy the visualization — pull requests and feedback are welcome!
+# p5 Fireplace Visualizer
 
-Owner
+This project is a cozy visualization of a fireplace using the p5.js library. It simulates fire and airflow to create a relaxing experience.
 
-leothas-dotcom
+## Features
+
+- Realistic fire simulation with individual particles.
+- Airflow dynamics that influence the movement of fire particles.
+- Interactive canvas that provides a soothing visual experience.
+
+## Installation
+
+1. Clone the repository:
+   ```
+   git clone https://github.com/yourusername/p5-fireplace-visualizer.git
+   ```
+2. Navigate to the project directory:
+   ```
+   cd p5-fireplace-visualizer
+   ```
+3. Install the dependencies:
+   ```
+   npm install
+   ```
+
+## Usage
+
+To run the project, use the following command:
+```
+npm start
+```
+This will start a local server and open the visualization in your default web browser.
+
+## Contributing
+
+Feel free to submit issues or pull requests if you have suggestions or improvements for the project.
+
+## License
+
+This project is licensed under the MIT License. See the LICENSE file for more details.
