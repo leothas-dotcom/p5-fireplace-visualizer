@@ -3,23 +3,21 @@
   "version": "1.0.0",
   "description": "A cozy fireplace visualizer using p5.js to simulate fire and airflow.",
   "main": "src/sketch.js",
-  "scripts": {
-    "start": "live-server",
-    "build": "echo 'Build step not defined'",
-    "test": "echo 'No tests defined'"
-  },
   "keywords": [
     "p5.js",
     "fire",
     "visualization",
     "relaxation"
   ],
-  "author": "Your Name",
+  "author": "Niko Kilpi",
   "license": "MIT",
   "dependencies": {
     "p5": "^1.4.0"
   },
-  "devDependencies": {
-    "live-server": "^1.2.1"
-  }
+  "scripts": {
+    "start": "node scripts/serve.js 8080",
+    "build": "echo 'Build step not defined'",
+    "test": "echo 'No tests defined'"
+  },
+  "devDependencies": {}
 }
